@@ -1,0 +1,40 @@
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import { Server } from "socket.io"; // Import Socket.IO
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const server = app.listen(PORT, () =>
+  console.log(`Server is running on port ${PORT}`)
+);
+
+const io = new Server(server);
+
+app.use(express.static(path.join(__dirname, "public")));
+
+let socketsConnected = new Set();
+
+io.on("connection", onConnected);
+
+function onConnected(socket) {
+  console.log(socket.id);
+  socketsConnected.add(socket.id);
+
+  io.emit("clients-total", socketsConnected.size); // Émettre le total des clients
+
+  socket.on("disconnect", () => {
+    console.log(`Client disconnected: ${socket.id}`);
+    socketsConnected.delete(socket.id);
+    io.emit("clients-total", socketsConnected.size);
+  });
+
+  socket.on("message", (data) => {
+    console.log(data);
+    socket.broadcast.emit("chat-message", data);
+  });
+}
